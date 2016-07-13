@@ -133,16 +133,14 @@ def discover(waitfor=1,
              probe_attempts=10,
              probe_interval=0.3):
 
-    discovered = []
+    discovered = {}
 
     class UDPRequestHandler(socketserver.BaseRequestHandler):
 
         def handle(self):
             log.debug("Discovery: received response from {} - '{}'".format(self.client_address[0], self.request[0]))
             resp = process_response(self.request[0])
-            resp['host'] = self.client_address[0]
-            aircon = Aircon(**resp)
-            discovered.append(aircon)
+            discovered[self.client_address[0]] = resp
 
 
     sckt = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -175,4 +173,8 @@ def discover(waitfor=1,
     server.shutdown()
     server.server_close()
 
-    return discovered
+    aircons = []
+    for host, data in discovered.items():
+        aircons.append(Aircon(host=host, **data))
+
+    return aircons
