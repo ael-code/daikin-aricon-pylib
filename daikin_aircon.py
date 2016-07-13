@@ -25,30 +25,35 @@ class Aircon():
             ('mac', 'mac'),
             ('led', 'led'),
             ('type', 'type'),
-            ('region', 'region')
-            ]
+            ('region', 'region')]
 
     def __init__(self, **args):
         if 'host' in args:
             self.host = args['host']
         else:
             self.host = None
+        self._raw_data = {}
+        self.update_data(args)
+        self._http_conn = None
 
+    def update_data(self, data):
         for name, prop in self.mappings:
-            v = args[name] if name in args else None
-            try:
-                parse_func = getattr(self, '_parse_'+prop)
-                v = parse_func(v)
-            except(AttributeError):
-                pass
+            if name in data:
+                v = data[name]
+                try:
+                    parse_func = getattr(self, '_parse_'+prop)
+                    v = parse_func(v)
+                except(AttributeError):
+                    pass
+            else:
+                v = None
             setattr(self, prop, v)
 
-        self._raw_data = args
-        self._http_conn = None
+        self._raw_data.update(data)
 
     @classmethod
     def _parse_power(cls, v):
-        return bool(v)
+        return bool(int(v))
 
     @classmethod
     def _parse_name(cls, v):
@@ -56,7 +61,7 @@ class Aircon():
 
     @classmethod
     def _parse_led(cls, v):
-        return bool(v)
+        return bool(int(v))
 
     def set_control_info(self, params, update=True):
         if update:
@@ -64,9 +69,13 @@ class Aircon():
             cinfo.update(params)
             params = cinfo
         self.send_request('GET', '/aircon/set_control_info', fields=params)
+        self.update_data(params)
 
-    def get_control_info(self):
-        return self.send_request('GET', '/aircon/get_control_info')
+    def get_control_info(self, store=True):
+        ctrl_info = self.send_request('GET', '/aircon/get_control_info')
+        if store:
+            self.update_data(ctrl_info)
+        return ctrl_info
 
     def send_request(self, method, url, fields=None, headers=None, **urlopen_kw):
         '''Send request to air conditioner
