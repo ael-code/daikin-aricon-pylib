@@ -3,10 +3,14 @@ import socketserver
 import threading
 import time
 import urllib.parse
+import logging
+
 
 DSCV_TXT = "DAIKIN_UDP/common/basic_info"
 DSCV_PRT = 30050
 RESPONSE_PREFIX = b'ret=OK'
+
+log = logging.getLogger("dainkin_aircon")
 
 
 class Aircon():
@@ -90,6 +94,7 @@ def discover(waitfor=1,
     class UDPRequestHandler(socketserver.BaseRequestHandler):
 
         def handle(self):
+            log.debug("Discovery: received response from {} - '{}'".format(self.client_address[0], self.request[0]))
             resp = process_response(self.request[0])
             resp['host'] = self.client_address[0]
             aircon = Aircon(**resp)
@@ -102,21 +107,26 @@ def discover(waitfor=1,
 
     server = socketserver.ThreadingUDPServer((listen_address, listen_port), UDPRequestHandler)
     server.socket = sckt
+    srv_addr, srv_port = server.server_address
 
     server_thread = threading.Thread(target=server.serve_forever)
     # Exit the server thread when the main thread terminates
     server_thread.daemon = True
+    log.debug("Discovery: starting UDP server on {}:{}".format(srv_addr, srv_port))
     server_thread.start()
 
     for i in range(0, probe_attempts):
-        sckt.sendto(DSCV_TXT.encode(), ('255.255.255.255', DSCV_PRT))
+        log.debug("Discovery: probe attempt {} on {}:{}".format(i, probe_address, probe_port))
+        sckt.sendto(DSCV_TXT.encode(), (probe_address, probe_port))
+        log.debug("Discovery: sleeping for {}s".format(probe_interval))
         time.sleep(probe_interval)
         if len(discovered) >= waitfor:
             break
 
     remaining_time = timeout - (probe_interval * probe_attempts)
     if (remaining_time > 0) and (len(discovered) < waitfor):
-        time.sleep(timeout - (probe_interval * probe_attempts))
+        log.debug("Discovery: waiting responses for {}s more".format(remaining_time))
+        time.sleep(remaining_time)
 
     server.shutdown()
     server.server_close()

@@ -1,5 +1,8 @@
 import daikin_aircon
 from pprint import pprint
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
 
 discovered = daikin_aircon.discover()
 pprint(discovered)
