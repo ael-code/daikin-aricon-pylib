@@ -4,6 +4,7 @@ import threading
 import time
 import urllib.parse
 import logging
+import urllib3
 
 
 DSCV_TXT = "DAIKIN_UDP/common/basic_info"
@@ -18,14 +19,14 @@ log = logging.getLogger("dainkin_aircon")
 class Aircon():
 
     mappings = [
-       ('ver', 'firmware_version'),
-       ('name', 'name'),
-       ('pow', 'power'),
-       ('mac', 'mac'),
-       ('led', 'led'),
-       ('type', 'type'),
-       ('region', 'region')
-    ]
+            ('ver', 'firmware_version'),
+            ('name', 'name'),
+            ('pow', 'power'),
+            ('mac', 'mac'),
+            ('led', 'led'),
+            ('type', 'type'),
+            ('region', 'region')
+            ]
 
     def __init__(self, **args):
         if 'host' in args:
@@ -43,6 +44,7 @@ class Aircon():
             setattr(self, prop, v)
 
         self._raw_data = args
+        self._http_conn = None
 
     @classmethod
     def _parse_power(cls, v):
@@ -55,6 +57,36 @@ class Aircon():
     @classmethod
     def _parse_led(cls, v):
         return bool(v)
+
+    def set_control_info(self, params, update=True):
+        if update:
+            cinfo = self.get_control_info()
+            cinfo.update(params)
+            params = cinfo
+        self.send_request('GET', '/aircon/set_control_info', fields=params)
+
+    def get_control_info(self):
+        return self.send_request('GET', '/aircon/get_control_info')
+
+    def send_request(self, method, url, fields=None, headers=None, **urlopen_kw):
+        '''Send request to air conditioner
+
+           args and kwargs will be passed to
+           `urllib3.request.RequestMethods.request`
+        '''
+        if self.host == None:
+            raise Exception("Cannot send request: host attribute missing")
+
+        if self._http_conn == None:
+            self._http_conn = urllib3.PoolManager()
+
+        res = self._http_conn.request(method,
+                                      'http://{}{}'.format(self.host, url),
+                                      fields=fields,
+                                      headers=headers,
+                                      **urlopen_kw)
+        log.debug("Received response from '{}', data: '{}'".format(self.host,res.data))
+        return process_response(res.data)
 
     def __repr__(self):
         basic_info = {'host': self.host,
