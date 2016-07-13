@@ -8,7 +8,9 @@ import logging
 
 DSCV_TXT = "DAIKIN_UDP/common/basic_info"
 DSCV_PRT = 30050
-RESPONSE_PREFIX = b'ret=OK'
+RET_MSG_OK = b'OK'
+RET_MSG_PARAM_NG = b'PARAM NG'
+RET_MSG_ADV_NG= b'ADV_NG'
 
 log = logging.getLogger("dainkin_aircon")
 
@@ -71,8 +73,18 @@ def process_response(response):
        standard prefix @RESPONSE_PREFIX a RespException will be raised.
     '''
     rsp = response.split(b',')
-    if (len(rsp) is 0) or (rsp[0] != RESPONSE_PREFIX):
+    if (len(rsp) is 0) or (not rsp[0].startswith(b'ret=')):
         raise RespException("Unrecognized data format for the response")
+
+    ret_msg = rsp[0][4:]
+    if ret_msg != RET_MSG_OK:
+        if ret_msg == RET_MSG_PARAM_NG:
+            raise RespException("Wrong parameters")
+        elif ret_msg == RET_MSG_ADV_NG:
+            raise RespException("Wrong ADV")
+        else:
+            raise RespException("Unrecognized return message: '{}'".format(ret_msg))
+
     # Remove the standard prefix
     rsp = rsp[1:]
     # Transform the dictionary into a response
