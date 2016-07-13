@@ -9,6 +9,7 @@ import urllib3
 
 DSCV_TXT = "DAIKIN_UDP/common/basic_info"
 DSCV_PRT = 30050
+
 RET_MSG_OK = b'OK'
 RET_MSG_PARAM_NG = b'PARAM NG'
 RET_MSG_ADV_NG= b'ADV_NG'
@@ -17,6 +18,12 @@ log = logging.getLogger("dainkin_aircon")
 
 
 class Aircon():
+
+    MODE_AUTO = 0
+    MODE_DRY = 2
+    MODE_COOL = 3
+    MODE_HEAT = 4
+    MODE_FAN = 6
 
     def __init__(self, host):
         self.host = host
@@ -50,8 +57,43 @@ class Aircon():
 
     power = property(get_power, set_power)
 
+    def get_target_temp(self):
+        v = self.get_control_info()['stemp']
+        return float(v)
+
+    def set_target_temp(self, v):
+        v = str(float(v))
+        self.set_control_info({'stemp': v})
+
+    target_temp = property(get_target_temp, set_target_temp)
+
+    def get_mode(self):
+        v = self.get_control_info()['mode']
+        return int(v)
+
+    def set_mode(self, v):
+        v = int(v)
+        self.set_control_info({'mode': v})
+
+    mode = property(get_mode, set_mode)
+
+    def get_indoor_temp(self):
+        v = self.get_sensor_info()['htemp']
+        return float(v)
+
+    indoor_temp = property(get_indoor_temp)
+
+    def get_outdoor_temp(self):
+        v = self.get_sensor_info()['otemp']
+        return float(v)
+
+    outdoor_temp = property(get_outdoor_temp)
+
     def get_basic_info(self):
         return self.send_request('GET', '/common/basic_info')
+
+    def get_sensor_info(self):
+        return self.send_request('GET', '/aircon/get_sensor_info')
 
     def set_control_info(self, params, update=True):
         if update:
