@@ -89,6 +89,9 @@ class Aircon():
 
     outdoor_temp = property(get_outdoor_temp)
 
+    def reboot(self):
+        return self.send_request('GET', '/common/reboot')
+
     def get_basic_info(self):
         return self.send_request('GET', '/common/basic_info')
 
