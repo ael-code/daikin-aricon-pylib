@@ -2,9 +2,10 @@ import socket
 import socketserver
 import threading
 import time
-import urllib.parse
 import logging
 import urllib3
+
+import bridge
 
 
 DSCV_TXT = "DAIKIN_UDP/common/basic_info"
@@ -30,83 +31,85 @@ class Aircon():
         self._http_conn = None
 
     def get_name(self):
-        v = self.get_basic_info()['name']
-        return urllib.parse.unquote(v)
+        return self.get_basic_info()['name']
 
     name = property(get_name)
 
     def get_mac_address(self):
-        v = self.get_basic_info()['mac']
-        return v
+        return self.get_basic_info()['mac']
 
     mac_address = property(get_mac_address)
 
     def get_firmware_version(self):
-        v = self.get_basic_info()['ver']
-        return v
+        return self.get_basic_info()['ver']
 
     firmware_version = property(get_firmware_version)
 
     def set_power(self, v):
-        v = int(bool(v))
         self.set_control_info({'pow': v})
 
     def get_power(self):
-        v = self.get_control_info()['pow']
-        return bool(int(v))
+        return self.get_control_info()['pow']
 
     power = property(get_power, set_power)
 
     def get_target_temp(self):
-        v = self.get_control_info()['stemp']
-        return float(v)
+        return self.get_control_info()['stemp']
 
     def set_target_temp(self, v):
-        v = str(float(v))
         self.set_control_info({'stemp': v})
 
     target_temp = property(get_target_temp, set_target_temp)
 
     def get_mode(self):
-        v = self.get_control_info()['mode']
-        return int(v)
+        return self.get_control_info()['mode']
 
     def set_mode(self, v):
-        v = int(v)
         self.set_control_info({'mode': v})
 
     mode = property(get_mode, set_mode)
 
     def get_indoor_temp(self):
-        v = self.get_sensor_info()['htemp']
-        return float(v)
+        return self.get_sensor_info()['htemp']
 
     indoor_temp = property(get_indoor_temp)
 
     def get_outdoor_temp(self):
-        v = self.get_sensor_info()['otemp']
-        return float(v)
+        return self.get_sensor_info()['otemp']
 
     outdoor_temp = property(get_outdoor_temp)
 
     def reboot(self):
         return self.send_request('GET', '/common/reboot')
 
-    def get_basic_info(self):
+    def get_raw_basic_info(self):
         return self.send_request('GET', '/common/basic_info')
 
-    def get_sensor_info(self):
-        return self.send_request('GET', '/aircon/get_sensor_info')
+    def get_basic_info(self):
+        return bridge.parse_basic_info(self.get_raw_basic_info())
 
-    def set_control_info(self, params, update=True):
+    def get_raw_sensor_info(self):
+        return self.send_request('get', '/aircon/get_sensor_info')
+
+    def get_sensor_info(self):
+        return bridge.parse_sensor_info(self.get_raw_sensor_info())
+
+    def set_raw_control_info(self, params, update=True):
         if update:
-            cinfo = self.get_control_info()
-            cinfo.update(params)
-            params = cinfo
+            cinfo = self.get_raw_control_info()
+            minimal_cinfo = {k:cinfo[k] for k in cinfo if k in ['pow','mode','stemp', 'shum','f_rate','f_dir']}
+            minimal_cinfo.update(params)
+            params = minimal_cinfo
         self.send_request('GET', '/aircon/set_control_info', fields=params)
 
-    def get_control_info(self):
+    def set_control_info(self, params, update=True):
+        return self.set_raw_control_info(bridge.format_control_info(params), update)
+
+    def get_raw_control_info(self):
         return self.send_request('GET', '/aircon/get_control_info')
+
+    def get_control_info(self):
+        return bridge.parse_control_info(self.get_raw_control_info())
 
     def send_request(self, method, url, fields=None, headers=None, **urlopen_kw):
         '''Send request to air conditioner
