@@ -13,7 +13,7 @@ DSCV_PRT = 30050
 
 RET_MSG_OK = b'OK'
 RET_MSG_PARAM_NG = b'PARAM NG'
-RET_MSG_ADV_NG= b'ADV_NG'
+RET_MSG_ADV_NG = b'ADV_NG'
 
 log = logging.getLogger("dainkin_aircon")
 
@@ -117,10 +117,10 @@ class Aircon():
            args and kwargs will be passed to
            `urllib3.request.RequestMethods.request`
         '''
-        if self.host == None:
+        if self.host is None:
             raise Exception("Cannot send request: host attribute missing")
 
-        if self._http_conn == None:
+        if self._http_conn is None:
             self._http_conn = urllib3.PoolManager()
 
         res = self._http_conn.request(method,
@@ -183,7 +183,6 @@ def discover(waitfor=1,
             resp = process_response(self.request[0])
             host = self.client_address[0]
             discovered[host] = resp
-
 
     sckt = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sckt.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
